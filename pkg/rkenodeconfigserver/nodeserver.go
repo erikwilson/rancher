@@ -90,7 +90,7 @@ func (n *RKENodeConfigServer) ServeHTTP(rw http.ResponseWriter, req *http.Reques
 	if isNonWorkerOnly(client.Node.Status.NodeConfig.Role) {
 		nodeConfig, err = n.nonWorkerConfig(req.Context(), client.Cluster, client.Node)
 	} else {
-		if client.Cluster.Status.AppliedSpec.RancherKubernetesEngineConfig == nil {
+		if client.Cluster.Spec.RancherKubernetesEngineConfig == nil {
 			rw.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
@@ -119,7 +119,7 @@ func isNonWorkerOnly(role []string) bool {
 }
 
 func (n *RKENodeConfigServer) nonWorkerConfig(ctx context.Context, cluster *v3.Cluster, node *v3.Node) (*rkeworker.NodeConfig, error) {
-	rkeConfig := cluster.Status.AppliedSpec.RancherKubernetesEngineConfig
+	rkeConfig := cluster.Spec.RancherKubernetesEngineConfig
 	if rkeConfig == nil {
 		rkeConfig = &v3.RancherKubernetesEngineConfig{}
 	}
@@ -159,7 +159,7 @@ func (n *RKENodeConfigServer) nonWorkerConfig(ctx context.Context, cluster *v3.C
 }
 
 func (n *RKENodeConfigServer) nodeConfig(ctx context.Context, cluster *v3.Cluster, node *v3.Node) (*rkeworker.NodeConfig, error) {
-	spec := cluster.Status.AppliedSpec.DeepCopy()
+	spec := cluster.Spec.DeepCopy()
 
 	infos, err := librke.GetDockerInfo(node)
 	if err != nil {
@@ -281,7 +281,7 @@ func augmentProcesses(token string, processes map[string]v3.Process, worker, b2d
 }
 
 func (n *RKENodeConfigServer) windowsNodeConfig(ctx context.Context, cluster *v3.Cluster, node *v3.Node, windowsReleaseID string) (*rkeworker.NodeConfig, error) {
-	rkeConfig := cluster.Status.AppliedSpec.RancherKubernetesEngineConfig
+	rkeConfig := cluster.Spec.RancherKubernetesEngineConfig
 	if rkeConfig == nil {
 		return nil, errors.New("only work on the clusters built with 'custom node'")
 	}
