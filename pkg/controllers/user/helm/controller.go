@@ -172,8 +172,13 @@ func (l *Lifecycle) DeployApp(obj *v3.App) (*v3.App, error) {
 		}
 	}
 	newObj, err := v3.AppConditionInstalled.Do(obj, func() (runtime.Object, error) {
-		template, notes, appDir, tempDir, err := l.generateTemplates(obj)
+		tempDir, err := ioutil.TempDir("", "helm-")
+		if err != nil {
+			return obj, err
+		}
 		defer os.RemoveAll(tempDir)
+
+		template, notes, appDir, err := l.generateTemplates(obj, tempDir)
 		if err != nil {
 			return obj, err
 		}

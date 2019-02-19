@@ -153,7 +153,7 @@ func GenerateAnswerSetValues(app *v3.App, tempDir string) ([]string, error) {
 	// a user-supplied values file will overridden default values.yaml
 	if app.Spec.ValuesYaml != "" {
 		valuesYaml := filepath.Join(tempDir, "custom-values.yaml")
-		if err := ioutil.WriteFile(valuesYaml, []byte(app.Spec.ValuesYaml), 0755); err != nil {
+		if err := ioutil.WriteFile(valuesYaml, []byte(app.Spec.ValuesYaml), 0644); err != nil {
 			return setValues, err
 		}
 		setValues = append(setValues, "--values", valuesYaml)

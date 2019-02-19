@@ -71,63 +71,58 @@ func helmDelete(kubeconfigPath string, app *v3.App) error {
 	return common.DeleteCharts(addr, app)
 }
 
-func (l *Lifecycle) generateTemplates(obj *v3.App) (string, string, string, string, error) {
+func (l *Lifecycle) generateTemplates(obj *v3.App, tempDir string) (string, string, string, error) {
 	var appSubDir string
 	files := map[string]string{}
 	if obj.Spec.ExternalID != "" {
 		templateVersionID, templateVersionNamespace, err := common.ParseExternalID(obj.Spec.ExternalID)
 		if err != nil {
-			return "", "", "", "", err
+			return "", "", "", err
 		}
 
 		templateVersion, err := l.TemplateVersionClient.GetNamespaced(templateVersionNamespace, templateVersionID, metav1.GetOptions{})
 		if err != nil {
-			return "", "", "", "", err
+			return "", "", "", err
 		}
 
 		namespace, catalogName, catalogType, _, _, err := common.SplitExternalID(templateVersion.Spec.ExternalID)
 		catalog, err := helmlib.GetCatalog(catalogType, namespace, catalogName, l.CatalogLister, l.ClusterCatalogLister, l.ProjectCatalogLister)
 		if err != nil {
-			return "", "", "", "", err
+			return "", "", "", err
 		}
 
 		helm, err := helmlib.New(catalog)
 		if err != nil {
-			return "", "", "", "", err
+			return "", "", "", err
 		}
 
 		files, err = helm.LoadChart(&templateVersion.Spec, nil)
 		if err != nil {
-			return "", "", "", "", err
+			return "", "", "", err
 		}
 		appSubDir = templateVersion.Spec.VersionName
 	} else {
 		for k, v := range obj.Spec.Files {
 			content, err := base64.StdEncoding.DecodeString(v)
 			if err != nil {
-				return "", "", "", "", err
+				return "", "", "", err
 			}
 			files[k] = string(content)
 		}
 		appSubDir = getAppSubDir(files)
 	}
 
-	tempDir, err := ioutil.TempDir("", "helm-")
-	if err != nil {
-		return "", "", "", "", err
-	}
 	if err := writeTempDir(tempDir, files); err != nil {
-		return "", "", "", tempDir, err
+		return "", "", "", err
 	}
-
-	appDir := filepath.Join(tempDir, appSubDir)
 
 	common.InjectDefaultRegistry(obj)
 	setValues, err := common.GenerateAnswerSetValues(obj, tempDir)
 	if err != nil {
-		return "", "", "", tempDir, err
+		return "", "", "", err
 	}
 
+	appDir := filepath.Join(tempDir, appSubDir)
 	commands := append([]string{"template", appDir, "--name", obj.Name, "--namespace", obj.Spec.TargetNamespace}, setValues...)
 
 	cmd := exec.Command(helmName, commands...)
@@ -136,10 +131,10 @@ func (l *Lifecycle) generateTemplates(obj *v3.App) (string, string, string, stri
 	cmd.Stdout = sbOut
 	cmd.Stderr = sbErr
 	if err := cmd.Start(); err != nil {
-		return "", "", "", tempDir, errors.Wrapf(err, "helm template failed. %s", filterErrorMessage(sbErr.String(), appDir, "template-dir"))
+		return "", "", "", errors.Wrapf(err, "helm template failed. %s", filterErrorMessage(sbErr.String(), appDir, "template-dir"))
 	}
 	if err := cmd.Wait(); err != nil {
-		return "", "", "", tempDir, errors.Wrapf(err, "helm template failed. %s", filterErrorMessage(sbErr.String(), appDir, "template-dir"))
+		return "", "", "", errors.Wrapf(err, "helm template failed. %s", filterErrorMessage(sbErr.String(), appDir, "template-dir"))
 	}
 
 	// notes.txt
@@ -150,14 +145,14 @@ func (l *Lifecycle) generateTemplates(obj *v3.App) (string, string, string, stri
 	cmd.Stdout = noteOut
 	cmd.Stderr = sbErr
 	if err := cmd.Start(); err != nil {
-		return "", "", "", tempDir, errors.Wrapf(err, "helm template --notes failed. %s", filterErrorMessage(sbErr.String(), appDir, "template-dir"))
+		return "", "", "", errors.Wrapf(err, "helm template --notes failed. %s", filterErrorMessage(sbErr.String(), appDir, "template-dir"))
 	}
 	if err := cmd.Wait(); err != nil {
-		return "", "", "", tempDir, errors.Wrapf(err, "helm template --notes failed. %s", filterErrorMessage(sbErr.String(), appDir, "template-dir"))
+		return "", "", "", errors.Wrapf(err, "helm template --notes failed. %s", filterErrorMessage(sbErr.String(), appDir, "template-dir"))
 	}
 	template := sbOut.String()
 	notes := noteOut.String()
-	return template, notes, appDir, tempDir, nil
+	return template, notes, appDir, nil
 }
 
 // filter error message, replace old with new
