@@ -36,6 +36,16 @@ const (
 )
 
 func Register(ctx context.Context, user *config.UserContext, kubeConfigGetter common.KubeConfigGetter) {
+
+	for {
+		if err := secretStorageUpgrade(user); err != nil {
+			logrus.Errorf("secret storage upgrade error: %s", err)
+			time.Sleep(3 * time.Second)
+		} else {
+			break
+		}
+	}
+
 	appClient := user.Management.Project.Apps("")
 	stackLifecycle := &Lifecycle{
 		KubeConfigGetter:      kubeConfigGetter,
