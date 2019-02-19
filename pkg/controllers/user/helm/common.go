@@ -15,7 +15,9 @@ import (
 	helmlib "github.com/rancher/rancher/pkg/catalog/helm"
 	"github.com/rancher/rancher/pkg/controllers/user/helm/common"
 	"github.com/rancher/types/apis/project.cattle.io/v3"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 const (
@@ -53,21 +55,33 @@ func getAppSubDir(files map[string]string) string {
 	return appSubDir
 }
 
-func helmInstall(templateDir, kubeconfigPath string, app *v3.App) error {
+func (l *Lifecycle) helmInstall(templateDir, kubeconfigPath string, app *v3.App) error {
+	configs, err := l.ConfigMapLister.List(app.Name, labels.Everything())
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	var useSecretStorage = len(configs) == 0
+
 	cont, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	addr := common.GenerateRandomPort()
 	probeAddr := common.GenerateRandomPort()
-	go common.StartTiller(cont, addr, probeAddr, app.Spec.TargetNamespace, kubeconfigPath)
+	go common.StartTiller(cont, addr, probeAddr, app.Spec.TargetNamespace, kubeconfigPath, useSecretStorage)
 	return common.InstallCharts(templateDir, addr, app)
 }
 
-func helmDelete(kubeconfigPath string, app *v3.App) error {
+func (l *Lifecycle) helmDelete(kubeconfigPath string, app *v3.App) error {
+	configs, err := l.ConfigMapLister.List(app.Name, labels.Everything())
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	var useSecretStorage = len(configs) == 0
+
 	cont, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	addr := common.GenerateRandomPort()
 	probeAddr := common.GenerateRandomPort()
-	go common.StartTiller(cont, addr, probeAddr, app.Spec.TargetNamespace, kubeconfigPath)
+	go common.StartTiller(cont, addr, probeAddr, app.Spec.TargetNamespace, kubeconfigPath, useSecretStorage)
 	return common.DeleteCharts(addr, app)
 }
 

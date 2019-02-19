@@ -86,8 +86,12 @@ func InjectDefaultRegistry(obj *v3.App) {
 }
 
 // StartTiller start tiller server and return the listening address of the grpc address
-func StartTiller(context context.Context, port, probePort, namespace, kubeConfigPath string) error {
-	cmd := exec.Command(tillerName, "--listen", ":"+port, "--probe", ":"+probePort)
+func StartTiller(context context.Context, port, probePort, namespace, kubeConfigPath string, useSecretStorage bool) error {
+	var args = []string{"--listen", ":" + port, "--probe", ":" + probePort}
+	if useSecretStorage {
+		args = append(args, "--storage", "secret")
+	}
+	cmd := exec.Command(tillerName, args...)
 	cmd.Env = []string{fmt.Sprintf("%s=%s", "KUBECONFIG", kubeConfigPath), fmt.Sprintf("%s=%s", "TILLER_NAMESPACE", namespace)}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

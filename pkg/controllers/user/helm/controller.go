@@ -54,6 +54,7 @@ func Register(ctx context.Context, user *config.UserContext, kubeConfigGetter co
 		AppRevisionGetter:     user.Management.Project,
 		AppGetter:             user.Management.Project,
 		NsClient:              user.Core.Namespaces(""),
+		ConfigMapLister:       user.Core.ConfigMaps("").Controller().Lister(),
 	}
 	appClient.AddClusterScopedLifecycle(ctx, "helm-controller", user.ClusterName, stackLifecycle)
 
@@ -77,6 +78,7 @@ type Lifecycle struct {
 	AppRevisionGetter     v3.AppRevisionsGetter
 	AppGetter             v3.AppsGetter
 	NsClient              corev1.NamespaceInterface
+	ConfigMapLister       corev1.ConfigMapLister
 }
 
 func (l *Lifecycle) Create(obj *v3.App) (runtime.Object, error) {
@@ -211,7 +213,7 @@ func (l *Lifecycle) Remove(obj *v3.App) (runtime.Object, error) {
 	// try three times and succeed
 	start := time.Second * 1
 	for i := 0; i < 3; i++ {
-		if err = helmDelete(kubeConfigPath, obj); err == nil {
+		if err = l.helmDelete(kubeConfigPath, obj); err == nil {
 			break
 		}
 		logrus.Warn(err)
@@ -254,7 +256,7 @@ func (l *Lifecycle) Run(obj *v3.App, template, templateDir, notes string) error 
 	if err != nil {
 		return err
 	}
-	if err := helmInstall(templateDir, kubeConfigPath, obj); err != nil {
+	if err := l.helmInstall(templateDir, kubeConfigPath, obj); err != nil {
 		return err
 	}
 	return l.createAppRevision(obj, template, notes, false)
